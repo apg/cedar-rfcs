@@ -140,6 +140,8 @@ path("foo", "bar", "baz").get(0)  // "foo"
 
 `.get()` is useful when a specific position carries a fixed semantic meaning, such as a tenant ID in the first component of a URL path.
 
+`.has(n)` can be used to avoid the evaluation error, by ensuring that `n` exists within the path.
+
 ### Suffix matching
 
 The `path` type does not provide `.suffixMatches()`. Suffix matching requires locating the start position based on the runtime path length — an unbounded computation that cannot be encoded as a decidable SMT formula. See [Drawbacks](#drawbacks).
@@ -213,17 +215,9 @@ Records with positional fields work for paths whose length is fixed by the schem
 
 `resource.keyString like "reports/2025/*"` is fragile when components can contain the delimiter, cannot enforce exact component count, and cannot distinguish "one wildcard component" from "multiple components". It provides no structural abstraction for hierarchical identifiers.
 
-### Alternative D: Expose `.getLength()` and `.get(n)` with variable indices
-
-Making `path` a full array type with `.getLength()` and variable-index `.get(n)` is not feasible. Array indexing by a runtime-computed index requires quantification over all possible index values, which is undecidable in the SMT theories Cedar uses — precisely why Cedar uses sets rather than arrays in its core type system. Restricting `.get()` to literal indices (as proposed) is analyzable, but `.matches()` and `.prefixMatches()` are the primary ergonomic motivation for this type.
-
-### Alternative E: Delimiter-aware string matching
+### Alternative D: Delimiter-aware string matching
 
 A `pathMatches(pathString, patternString, delimiter)` function would avoid the pre-parsing requirement but would introduce delimiter semantics — leading/trailing slashes, repeated delimiters, empty components — into Cedar's evaluation and formal specification, and would make analysis harder because component count becomes a runtime property of the string value. Cedar's philosophy of keeping parsing in the application layer argues against this approach.
-
-### Alternative F: Status quo (do nothing)
-
-Tags, entity hierarchy, records, and `like`-based string matching cover path-related use cases today. The `path` type is justified by the frequency of the pattern and the non-obviousness of the workarounds: the original issue notes that working out the tag-based approach "took some time," and several independent parties arrived at the same feature request through different use cases.
 
 ## Unresolved questions
 
@@ -232,5 +226,3 @@ Tags, entity hierarchy, records, and `like`-based string matching cover path-rel
 - **Wildcard semantics.** Pattern matching follows Cedar's `like` semantics: `*` matches zero or more characters within a single component and does not cross component boundaries. This means `path("foo", "bar").matches("*")` is `false` (length 2, not 1). The interaction between zero-length matches and the hostname use case (where `*.github.com` should require a non-empty subdomain) should be confirmed.
 
 - **Empty path behavior.** Should `path()` — a zero-component path — be a valid value? `path().matches()` and `path().prefixMatches()` would both return `true`, which seems correct, but edge cases in entity data deserve consideration.
-
-- **Feature flag.** Should the `path` type be gated behind a feature flag (as `datetime` was initially) or unconditionally available from the start?
